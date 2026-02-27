@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'profile_screen.dart'; 
-import 'main_wrapper.dart'; 
+import '../services/jarprofile_service.dart';
+import 'language_selection_screen.dart';
+import 'main_wrapper.dart';
+import 'income_setup_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
+  final JarProfileService _jarProfileService = JarProfileService();
 
   LoginScreen({super.key});
 
@@ -144,13 +147,44 @@ class LoginScreen extends StatelessWidget {
                             if (token != null) {
                               if (!context.mounted) return;
 
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      MainWrapper(token: token),
-                                ),
-                              );
+                              final userProfile =
+                                  await _authService.getUserProfile(token);
+                              if (!context.mounted) return;
+
+                              final currency =
+                                  (userProfile?['currency'] ?? '').toString();
+
+                              if (currency.isEmpty) {
+                                // Chưa có currency -> vào chọn ngôn ngữ
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const LanguageSelectionScreen(),
+                                  ),
+                                );
+                              } else {
+                                final hasActiveProfile =
+                                    await _jarProfileService.hasActiveProfile();
+                                if (!context.mounted) return;
+
+                                if (hasActiveProfile) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const MainWrapper(),
+                                    ),
+                                  );
+                                } else {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const IncomeSetupScreen(),
+                                    ),
+                                  );
+                                }
+                              }
                             } else {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(

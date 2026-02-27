@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final String token;
-  const ProfileScreen({super.key, required this.token});
+  final VoidCallback? onProfileUpdated;
+
+  const ProfileScreen({super.key, this.onProfileUpdated});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -16,7 +18,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String email = "";
   String monthlyIncome = "";
   String payDay = "";
+  String currency = "VND";
   bool isLoading = true;
+
+  final Map<String, Map<String, String>> labels = {
+    'profile_title': {'VND': 'Cá nhân', 'USD': 'Profile'},
+    'loading': {'VND': 'Đang tải...', 'USD': 'Loading...'},
+    'load_error': {
+      'VND': 'Không thể tải thông tin cá nhân',
+      'USD': 'Unable to load profile'
+    },
+    'monthly_income': {
+      'VND': 'Thu nhập hàng tháng',
+      'USD': 'Monthly Income'
+    },
+    'salary_day': {'VND': 'Ngày nhận lương', 'USD': 'Salary Payment Day'},
+    'not_set': {'VND': 'Chưa thiết lập', 'USD': 'Not set'},
+    'salary_day_prefix': {'VND': 'Ngày ', 'USD': 'Day '},
+    'edit_name_title': {'VND': 'Đổi tên hiển thị', 'USD': 'Change Display Name'},
+    'name_hint': {
+      'VND': 'Nhập tên mới của bạn',
+      'USD': 'Enter your new name'
+    },
+    'full_name_label': {'VND': 'Họ và tên', 'USD': 'Full Name'},
+    'cancel': {'VND': 'Hủy', 'USD': 'Cancel'},
+    'save': {'VND': 'Lưu', 'USD': 'Save'},
+    'update_success': {
+      'VND': 'Cập nhật hồ sơ thành công!',
+      'USD': 'Profile updated successfully!'
+    },
+    'update_error': {
+      'VND': 'Lỗi: Không thể cập nhật tên',
+      'USD': 'Error: Unable to update name'
+    },
+    'financial_info': {
+      'VND': 'Thông tin tài chính',
+      'USD': 'Financial Information'
+    },
+    'edit_name': {'VND': 'Đổi tên hiển thị', 'USD': 'Change Display Name'},
+    'settings': {'VND': 'Cài đặt tài khoản', 'USD': 'Account Settings'},
+    'notifications': {'VND': 'Thông báo', 'USD': 'Notifications'},
+    'logout': {'VND': 'ĐĂNG XUẤT', 'USD': 'LOGOUT'},
+    'transactions': {'VND': 'Giao dịch', 'USD': 'Transactions'},
+    'goals_reached': {'VND': 'Mục tiêu đạt', 'USD': 'Goals Reached'},
+    'vnd_prefix': {'VND': '₫', 'USD': '₫'},
+    'usd_prefix': {'VND': '\$', 'USD': '\$'},
+  };
+
+  String? _getLabel(String key) {
+    return labels[key]?[currency];
+  }
 
   @override
   void initState() {
@@ -25,75 +76,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    final userData = await _authService.getUserProfile(widget.token);
+    // Lấy token từ secure storage
+    final userData = await _authService.getUserProfile();
     if (!mounted) return;
 
     if (userData != null) {
       setState(() {
-        name = userData['full_name'] ?? "Người dùng";
+        name = userData['full_name'] ?? "User";
         email = userData['email'] ?? "";
         monthlyIncome = userData['monthly_income']?.toString() ?? "";
         payDay = userData['pay_day']?.toString() ?? "";
+        currency = userData['currency'] ?? "VND";
         isLoading = false;
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Không thể tải thông tin cá nhân")),
+        SnackBar(content: Text(_getLabel('load_error') ?? 'Error')),
       );
     }
   }
 
 
   void _updateName() async {
-
-  final TextEditingController nameController = TextEditingController(text: name);
-
-
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text("Đổi tên hiển thị"),
-      content: TextField(
-        controller: nameController,
-        decoration: const InputDecoration(
-          hintText: "Nhập tên mới của bạn",
-          labelText: "Họ và tên",
+    final TextEditingController nameController = TextEditingController(text: name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_getLabel('edit_name_title') ?? 'Change Name'),
+        content: TextField(
+          controller: nameController,
+          decoration: InputDecoration(
+            hintText: _getLabel('name_hint'),
+            labelText: _getLabel('full_name_label'),
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(_getLabel('cancel') ?? 'Cancel',
+                style: const TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              String newName = nameController.text.trim();
+              if (newName.isEmpty) return;
+              Navigator.pop(context);
+              bool success = await _authService.updateProfile(newName);
+              if (!mounted) return;
+              if (success) {
+                setState(() => name = newName);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(_getLabel('update_success') ?? 'Success')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(_getLabel('update_error') ?? 'Error')),
+                );
+              }
+            },
+            child: Text(_getLabel('save') ?? 'Save'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            String newName = nameController.text.trim();
-            if (newName.isEmpty) return;
-
-            Navigator.pop(context);
-            
-           
-            bool success = await _authService.updateProfile(widget.token, newName);
-
-            if (!mounted) return;
-
-            if (success) {
-              setState(() => name = newName); 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Cập nhật hồ sơ thành công!")),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Lỗi: Không thể cập nhật tên")),
-              );
-            }
-          },
-          child: const Text("Lưu"),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +164,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Column(
                       children: [
-                        const Text(
-                          'Cá nhân',
-                          style: TextStyle(
+                        Text(
+                          _getLabel('profile_title') ?? 'Profile',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -161,9 +209,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _buildHeaderStat('0', 'Giao dịch'),
+                            _buildHeaderStat('0', _getLabel('transactions') ?? 'Transactions'),
                             const SizedBox(width: 10),
-                            _buildHeaderStat('0', 'Mục tiêu đạt'),
+                            _buildHeaderStat('0', _getLabel('goals_reached') ?? 'Goals'),
                           ],
                         ),
                       ],
@@ -188,9 +236,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Thông tin tài chính',
-                          style: TextStyle(
+                        Text(
+                          _getLabel('financial_info') ?? 'Financial Info',
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: Color(0xFF1E293B),
@@ -199,18 +247,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 16),
                         _buildFinanceItem(
                           icon: Icons.attach_money,
-                          label: 'Thu nhập hàng tháng',
+                          label: _getLabel('monthly_income') ?? 'Income',
                           value: monthlyIncome.isEmpty
-                              ? "Chưa thiết lập"
-                              : "$monthlyIncome đ",
+                              ? _getLabel('not_set') ?? 'Not set'
+                          : "$monthlyIncome ${_getLabel(currency == 'USD' ? 'usd_prefix' : 'vnd_prefix')}",
                         ),
                         const Divider(height: 24, thickness: 0.5),
                         _buildFinanceItem(
                           icon: Icons.calendar_today_outlined,
-                          label: 'Ngày nhận lương',
+                          label: _getLabel('salary_day') ?? 'Salary Day',
                           value: payDay.isEmpty
-                              ? "Chưa thiết lập"
-                              : "Ngày $payDay",
+                              ? _getLabel('not_set') ?? 'Not set'
+                              : "${_getLabel('salary_day_prefix')}$payDay",
                         ),
                       ],
                     ),
@@ -219,17 +267,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // --- MENU ---
                   _buildMenuTile(
                     icon: Icons.edit_note,
-                    title: "Đổi tên hiển thị",
+                    title: _getLabel('edit_name') ?? 'Edit Name',
                     onTap: _updateName,
                   ),
                   _buildMenuTile(
                     icon: Icons.settings_outlined,
-                    title: "Cài đặt tài khoản",
-                    onTap: () {},
+                    title: _getLabel('settings') ?? 'Settings',
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
+                        ),
+                      );
+                      if (!mounted) return;
+                      await _loadProfile();
+                      widget.onProfileUpdated?.call();
+                    },
                   ),
                   _buildMenuTile(
                     icon: Icons.notifications_none,
-                    title: "Thông báo",
+                    title: _getLabel('notifications') ?? 'Notifications',
                     onTap: () {},
                   ),
 
@@ -245,12 +303,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () =>
-                          Navigator.pushReplacementNamed(context, '/login'),
+                      onPressed: () async {
+                        // Xóa token khỏi storage trước khi logout
+                        await _authService.logout();
+                        if (!context.mounted) return;
+                        Navigator.pushReplacementNamed(context, '/login');
+                      },
                       icon: const Icon(Icons.logout, color: Colors.white),
-                      label: const Text(
-                        "ĐĂNG XUẤT",
-                        style: TextStyle(
+                      label: Text(
+                        _getLabel('logout') ?? 'LOGOUT',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
