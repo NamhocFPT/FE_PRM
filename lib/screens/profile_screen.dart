@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String token;
@@ -43,57 +44,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _updateName() {
+    final TextEditingController nameController = TextEditingController(
+      text: name,
+    );
 
-  void _updateName() async {
-
-  final TextEditingController nameController = TextEditingController(text: name);
-
-
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text("Đổi tên hiển thị"),
-      content: TextField(
-        controller: nameController,
-        decoration: const InputDecoration(
-          hintText: "Nhập tên mới của bạn",
-          labelText: "Họ và tên",
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text("Đổi tên hiển thị"),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: "Nhập tên mới của bạn",
+            labelText: "Họ và tên",
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              String newName = nameController.text.trim();
+
+              if (newName.isEmpty) {
+                return;
+              }
+
+              Navigator.pop(dialogContext); // Đóng dialog ngay sau khi nhấn Lưu
+
+              // Nếu tên không đổi, không gọi API nhưng có thể báo thành công ảo để UX mượt
+              if (newName == name) {
+                return;
+              }
+
+              bool success = await _authService.updateProfile(
+                widget.token,
+                newName,
+              );
+
+              if (!mounted) return;
+
+              if (success) {
+                await _loadProfile(); // Tải lại toàn bộ hồ sơ từ server
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Cập nhật hồ sơ thành công!")),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Lỗi: Không thể cập nhật tên")),
+                );
+              }
+            },
+            child: const Text("Lưu"),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            String newName = nameController.text.trim();
-            if (newName.isEmpty) return;
-
-            Navigator.pop(context);
-            
-           
-            bool success = await _authService.updateProfile(widget.token, newName);
-
-            if (!mounted) return;
-
-            if (success) {
-              setState(() => name = newName); 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Cập nhật hồ sơ thành công!")),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Lỗi: Không thể cập nhật tên")),
-              );
-            }
-          },
-          child: const Text("Lưu"),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +236,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildMenuTile(
                     icon: Icons.settings_outlined,
                     title: "Cài đặt tài khoản",
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              SettingsScreen(token: widget.token),
+                        ),
+                      );
+                    },
                   ),
                   _buildMenuTile(
                     icon: Icons.notifications_none,

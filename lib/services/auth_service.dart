@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 class AuthService {
-  final String baseUrl = "http://10.0.2.2:3000/api/auth";
+  final String baseUrl = kIsWeb
+      ? "http://localhost:3000/api/auth"
+      : "http://10.0.2.2:3000/api/auth";
 
   Future<int> register(String name, String email, String password) async {
     final response = await http.post(
@@ -34,19 +37,15 @@ class AuthService {
   Future<Map<String, dynamic>?> getUserProfile(String token) async {
     try {
       final response = await http.get(
-        Uri.parse(
-          '$baseUrl/users/me',
-        ),
+        Uri.parse('$baseUrl/users/me'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', 
+          'Authorization': 'Bearer $token',
         },
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(
-          response.body,
-        );
+        return jsonDecode(response.body);
       }
       return null;
     } catch (e) {
@@ -54,12 +53,22 @@ class AuthService {
     }
   }
 
-  Future<bool> updateProfile(String token, String newName) async {
+  Future<bool> updateProfile(
+    String token,
+    String? newName, {
+    String? monthlyIncome,
+    String? payDay,
+    Map<String, dynamic>? jars,
+  }) async {
+    final Map<String, dynamic> body = {};
+    if (newName != null) body['full_name'] = newName;
+    if (monthlyIncome != null) body['monthly_income'] = monthlyIncome;
+    if (payDay != null) body['pay_day'] = payDay;
+    if (jars != null) body['jars'] = jars;
+
     final response = await http.put(
       Uri.parse('$baseUrl/users/me'),
-      body: jsonEncode({
-        'full_name': newName,
-      }), 
+      body: jsonEncode(body),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
