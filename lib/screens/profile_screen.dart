@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'settings_screen.dart';
+import 'notification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String token;
@@ -249,7 +250,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildMenuTile(
                     icon: Icons.notifications_none,
                     title: "Thông báo",
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationScreen(),
+                        ),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 20),
