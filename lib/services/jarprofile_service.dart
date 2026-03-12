@@ -167,4 +167,33 @@ class JarProfileService {
       return false;
     }
   }
+  // Lấy danh sách jar cho dropdown (UC-09)
+  // GET /api/jar-profiles/jars
+  Future<List<Map<String, dynamic>>?> getJarList([String? token]) async {
+    try {
+      token ??= await _tokenStorage.getToken();
+      if (token == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/jars'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final payload = jsonDecode(response.body);
+        final data = payload is Map ? payload['data'] : null;
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(
+            data.map((item) => Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }
