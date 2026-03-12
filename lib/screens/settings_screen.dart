@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 import '../services/auth_service.dart';
+import '../services/jarprofile_service.dart';
 
 class SettingsScreen extends StatefulWidget {
-  final String token;
-  const SettingsScreen({super.key, required this.token});
+  const SettingsScreen({super.key});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -13,474 +13,561 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final AuthService _authService = AuthService();
+  final JarProfileService _jarProfileService = JarProfileService();
+
+  final TextEditingController _incomeController = TextEditingController();
+  final TextEditingController _payDayController = TextEditingController();
+  final List<TextEditingController> _percentControllers = [];
+
+  String _currency = 'VND';
+  String? _profileId;
+  List<Map<String, dynamic>> _jars = [];
+
+  bool _isLoading = true;
   bool _isSaving = false;
 
-  final TextEditingController _incomeController = TextEditingController(
-    text: "235555555",
-  );
-  final TextEditingController _paydayController = TextEditingController(
-    text: "15",
-  );
+  final Map<String, Map<String, String>> labels = {
+    'title': {'VND': 'Cài đặt', 'USD': 'Settings'},
+    'financial': {'VND': 'Thông tin tài chính', 'USD': 'Financial Information'},
+    'monthly_income': {'VND': 'Thu nhập hàng tháng', 'USD': 'Monthly Income'},
+    'monthly_income_hint': {
+      'VND': 'Nhập thu nhập hàng tháng',
+      'USD': 'Enter monthly income',
+    },
+    'salary_day': {'VND': 'Ngày nhận lương', 'USD': 'Salary Payment Day'},
+    'salary_day_hint': {
+      'VND': 'Ngày trong tháng (1-31)',
+      'USD': 'Day of month (1-31)',
+    },
+    'allocation': {'VND': 'Phân bổ 6 lọ', 'USD': '6 Jars Allocation'},
+    'total': {'VND': 'Tổng', 'USD': 'Total'},
+    'total_ok': {'VND': 'Đạt 100%', 'USD': '100% OK'},
+    'total_error': {
+      'VND': 'Tổng phải bằng 100%',
+      'USD': 'Total must be 100%',
+    },
+    'save': {'VND': 'Lưu thay đổi', 'USD': 'Save Changes'},
+    'saving': {'VND': 'Đang lưu...', 'USD': 'Saving...'},
+    'language': {'VND': 'Ngôn ngữ', 'USD': 'Language'},
+    'vietnamese': {'VND': 'Tiếng Việt', 'USD': 'Vietnamese'},
+    'english': {'VND': 'Tiếng Anh', 'USD': 'English'},
+    'theme': {'VND': 'Giao diện', 'USD': 'Theme'},
+    'theme_light': {'VND': 'Sáng', 'USD': 'Light'},
+    'coming_soon': {'VND': 'Sẽ cập nhật sau', 'USD': 'Coming soon'},
+    'update_success': {
+      'VND': 'Cập nhật thành công',
+      'USD': 'Update successful',
+    },
+    'update_error': {'VND': 'Cập nhật thất bại', 'USD': 'Update failed'},
+    'invalid_income': {
+      'VND': 'Thu nhập phải lớn hơn 0',
+      'USD': 'Income must be greater than 0',
+    },
+    'invalid_day': {
+      'VND': 'Ngày nhận lương từ 1-31',
+      'USD': 'Salary day must be 1-31',
+    },
+    'no_profile': {
+      'VND': 'Chưa có hồ sơ đang hoạt động',
+      'USD': 'No active profile',
+    },
+  };
 
-  int _income = 235555555;
-
-  List<JarItem> jars = [
-    JarItem(
-      name: "Nhu cầu thiết yếu",
-      icon: Icons.home,
-      color: Colors.blue,
-      percentage: 55,
-    ),
-    JarItem(
-      name: "Giáo dục",
-      icon: Icons.book,
-      color: Colors.purple,
-      percentage: 10,
-    ),
-    JarItem(
-      name: "Giải trí",
-      icon: Icons.sports_esports,
-      color: Colors.pink,
-      percentage: 10,
-    ),
-    JarItem(
-      name: "Tiết kiệm dài hạn",
-      icon: Icons.diamond,
-      color: Colors.teal,
-      percentage: 10,
-    ),
-    JarItem(
-      name: "Tự do tài chính",
-      icon: Icons.flight_takeoff,
-      color: Colors.orange,
-      percentage: 10,
-    ),
-    JarItem(
-      name: "Cho đi",
-      icon: Icons.favorite,
-      color: Colors.red,
-      percentage: 5,
-    ),
-  ];
+  final Map<String, String> jarNameMap = {
+    'Nhu cầu thiết yếu': 'Necessities',
+    'Giáo dục': 'Education',
+    'Giải trí': 'Play',
+    'Tiết kiệm dài hạn': 'Long-term Savings',
+    'Tự do tài chính': 'Financial Freedom',
+    'Cho đi': 'Give',
+  };
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
-    _incomeController.addListener(() {
-      setState(() {
-        _income = int.tryParse(_incomeController.text) ?? 0;
-      });
-    });
-  }
-
-  Future<void> _loadSettings() async {
-    final userData = await _authService.getUserProfile(widget.token);
-    if (!mounted) return;
-
-    if (userData != null) {
-      setState(() {
-        _incomeController.text =
-            userData['monthly_income']?.toString() ?? "235555555";
-        _paydayController.text = userData['pay_day']?.toString() ?? "15";
-        _income = int.tryParse(_incomeController.text) ?? 235555555;
-
-        if (userData['jars'] != null) {
-          Map<String, dynamic> savedJars = userData['jars'];
-          for (var jar in jars) {
-            if (savedJars.containsKey(jar.name)) {
-              jar.percentage = savedJars[jar.name] as int;
-              jar.controller.text = jar.percentage.toString();
-            }
-          }
-        }
-      });
-    }
   }
 
   @override
   void dispose() {
     _incomeController.dispose();
-    _paydayController.dispose();
-    for (var jar in jars) {
-      jar.controller.dispose();
+    _payDayController.dispose();
+    for (final controller in _percentControllers) {
+      controller.dispose();
     }
     super.dispose();
   }
 
-  String formatCurrency(num amount) {
-    if (amount == 0) return "0 đ";
-    final formatter = NumberFormat.decimalPattern('vi_VN');
-    return "${formatter.format(amount)} đ";
+  String _getLabel(String key) {
+    return labels[key]?[_currency] ?? labels[key]?['VND'] ?? '';
   }
 
-  int get totalPercentage {
-    return jars.fold(0, (sum, item) => sum + item.percentage);
+  String _jarDisplayName(String? name) {
+    if (name == null) return '-';
+    if (_currency == 'USD') {
+      return jarNameMap[name] ?? name;
+    }
+    return name;
+  }
+
+  Future<void> _loadSettings() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final userProfile = await _authService.getUserProfile();
+      final activeProfile = await _jarProfileService.getActiveProfile();
+
+      if (!mounted) return;
+
+      if (userProfile != null) {
+        _currency = (userProfile['currency'] ?? 'VND').toString();
+        _incomeController.text = userProfile['monthly_income']?.toString() ?? '';
+        _payDayController.text = userProfile['pay_day']?.toString() ?? '';
+      }
+
+      if (activeProfile != null) {
+        _profileId = activeProfile['_id']?.toString();
+
+        final jars = activeProfile['jars'];
+        if (jars is List) {
+          _jars = List<Map<String, dynamic>>.from(jars);
+        }
+      }
+
+      _initPercentControllers();
+    } catch (e) {
+      // Có thể log ra nếu muốn debug
+      debugPrint('Load settings error: $e');
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+  }
+
+  void _initPercentControllers() {
+    for (final controller in _percentControllers) {
+      controller.dispose();
+    }
+    _percentControllers.clear();
+
+    for (final jar in _jars) {
+      final percent = jar['percent']?.toString() ?? '0';
+      _percentControllers.add(TextEditingController(text: percent));
+    }
+  }
+
+  int _totalPercent() {
+    int total = 0;
+    for (final jar in _jars) {
+      final value = jar['percent'];
+      if (value is num) {
+        total += value.round();
+      } else if (value is String) {
+        total += int.tryParse(value) ?? 0;
+      }
+    }
+    return total;
+  }
+
+  int? _parseInt(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return int.tryParse(trimmed);
+  }
+
+  Color _parseColor(String? hex) {
+    try {
+      if (hex == null || hex.isEmpty) return const Color(0xFF6366F1);
+
+      final sanitized = hex.replaceAll('#', '');
+      if (sanitized.length == 6) {
+        return Color(int.parse('FF$sanitized', radix: 16));
+      }
+      if (sanitized.length == 8) {
+        return Color(int.parse(sanitized, radix: 16));
+      }
+
+      return const Color(0xFF6366F1);
+    } catch (_) {
+      return const Color(0xFF6366F1);
+    }
+  }
+
+  IconData _iconFromName(String? name) {
+    switch (name) {
+      case 'savings':
+        return Icons.savings;
+      case 'school':
+        return Icons.school;
+      case 'celebration':
+        return Icons.celebration;
+      case 'favorite':
+        return Icons.favorite;
+      case 'home':
+        return Icons.home;
+      case 'flight':
+        return Icons.flight_takeoff;
+      default:
+        return Icons.account_balance_wallet;
+    }
+  }
+
+  Future<void> _updateCurrency(String currency) async {
+    if (currency == _currency) return;
+
+    final success = await _authService.updateCurrency(currency);
+    if (!mounted) return;
+
+    if (success) {
+      setState(() => _currency = currency);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_getLabel('update_success'))),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_getLabel('update_error'))),
+      );
+    }
   }
 
   Future<void> _saveSettings() async {
-    if (totalPercentage != 100) {
+    final total = _totalPercent();
+    if (total != 100) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Tổng phân bổ phải đúng bằng 100%")),
+        SnackBar(content: Text(_getLabel('total_error'))),
       );
       return;
     }
 
-    setState(() {
-      _isSaving = true;
-    });
-
-    Map<String, dynamic> jarsMap = {};
-    for (var jar in jars) {
-      jarsMap[jar.name] = jar.percentage;
+    final monthlyIncome = _parseInt(_incomeController.text);
+    if (monthlyIncome != null && monthlyIncome <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_getLabel('invalid_income'))),
+      );
+      return;
     }
 
-    bool success = await _authService.updateProfile(
-      widget.token,
-      null, // Tạm thời không cần gửi tên
-      monthlyIncome: _incomeController.text.trim(),
-      payDay: _paydayController.text.trim(),
-      jars: jarsMap,
-    );
+    final payDay = _parseInt(_payDayController.text);
+    if (payDay != null && (payDay < 1 || payDay > 31)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_getLabel('invalid_day'))),
+      );
+      return;
+    }
+
+    if (_profileId == null && _jars.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_getLabel('no_profile'))),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final financeUpdated =
+        await _authService.updateFinancialInfo(monthlyIncome, payDay);
+
+    bool jarsUpdated = true;
+    if (_profileId != null && _jars.isNotEmpty) {
+      jarsUpdated =
+          await _jarProfileService.updateJarPercentages(_profileId!, _jars);
+    }
 
     if (!mounted) return;
 
-    setState(() {
-      _isSaving = false;
-    });
-
-    if (success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Lưu thay đổi thành công!")));
+    if (financeUpdated && jarsUpdated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_getLabel('update_success'))),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Lỗi: Không thể lưu cài đặt")),
+        SnackBar(content: Text(_getLabel('update_error'))),
       );
     }
+
+    setState(() => _isSaving = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final padding = EdgeInsets.symmetric(
+      horizontal: isMobile ? 16 : 32,
+      vertical: isMobile ? 20 : 32,
+    );
+
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final total = _totalPercent();
+    final totalOk = total == 100;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text(
-          'Cài đặt',
-          style: TextStyle(color: Colors.white, fontSize: 18),
-        ),
-        backgroundColor: const Color(0xFF1E293B),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(_getLabel('title')),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: padding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFinanceSection(),
-              const SizedBox(height: 24),
-              _buildJarsSection(),
-              const SizedBox(height: 24),
-              _buildOtherOptionsSection(),
-              const SizedBox(height: 100), // spacing for bottom nav if needed
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: GestureDetector(
-        onTap: _isSaving ? null : _saveSettings,
-        child: Container(
-          color: const Color(0xFF0F172A),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: SafeArea(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_isSaving)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                else
-                  const Icon(Icons.save, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  _isSaving ? "Đang lưu..." : "Lưu thay đổi",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFinanceSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.attach_money, color: Colors.blue, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                "Thông tin tài chính",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            "Thu nhập hàng tháng (VND)",
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _incomeController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              isDense: true,
-              suffixIcon: const Icon(Icons.save, size: 16, color: Colors.grey),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            formatCurrency(_income),
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            "Ngày nhận lương",
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _paydayController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              fillColor: const Color(0xFFF8FAFC),
-              filled: true,
-              isDense: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJarsSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.pie_chart, color: Colors.purple, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                "Phân bổ 6 lọ",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: totalPercentage == 100
-                  ? Colors.green.shade50
-                  : Colors.red.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  "Tổng: $totalPercentage%",
-                  style: TextStyle(
-                    color: totalPercentage == 100
-                        ? Colors.green.shade700
-                        : Colors.red.shade700,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                if (totalPercentage == 100)
-                  Icon(Icons.check, color: Colors.green.shade700, size: 16),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...jars.map((jar) => _buildJarItem(jar)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJarItem(JarItem jar) {
-    double value = (_income * jar.percentage) / 100;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: jar.color.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(jar.icon, color: jar.color, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
+              _sectionCard(
+                title: _getLabel('financial'),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      jar.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    _labelText(_getLabel('monthly_income')),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _incomeController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: _inputDecoration(
+                        hintText: _getLabel('monthly_income_hint'),
+                        prefixText: _currency == 'USD' ? '\$ ' : '₫ ',
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      formatCurrency(value),
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    const SizedBox(height: 16),
+                    _labelText(_getLabel('salary_day')),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _payDayController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: _inputDecoration(
+                        hintText: _getLabel('salary_day_hint'),
+                        prefixIcon: const Icon(Icons.calendar_today_outlined),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
+              const SizedBox(height: 20),
+              _sectionCard(
+                title: _getLabel('allocation'),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: totalOk
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_getLabel('total')}: $total% ${totalOk ? _getLabel('total_ok') : ''}',
+                    style: TextStyle(
+                      color: totalOk
+                          ? const Color(0xFF15803D)
+                          : const Color(0xFFB91C1C),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                child: _jars.isEmpty
+                    ? Text(
+                        _getLabel('no_profile'),
+                        style: const TextStyle(color: Color(0xFF64748B)),
+                      )
+                    : Column(
+                        children: List.generate(_jars.length, (index) {
+                          final jar = _jars[index];
+                          final color = _parseColor(jar['color']?.toString());
+                          final percent =
+                              (jar['percent'] as num?)?.toDouble() ?? 0;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: color.withOpacity(0.4),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: color.withOpacity(0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        _iconFromName(jar['icon']?.toString()),
+                                        color: color,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _jarDisplayName(jar['name']?.toString()),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 68,
+                                      child: TextField(
+                                        controller: _percentControllers[index],
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                        ],
+                                        decoration: _inputDecoration(
+                                          suffixText: '%',
+                                          compact: true,
+                                        ),
+                                        onChanged: (value) {
+                                          final newValue =
+                                              int.tryParse(value) ?? 0;
+                                          final clamped =
+                                              newValue.clamp(0, 100).toInt();
+
+                                          setState(() {
+                                            jar['percent'] = clamped;
+
+                                            if (_percentControllers[index].text !=
+                                                clamped.toString()) {
+                                              _percentControllers[index].text =
+                                                  clamped.toString();
+                                              _percentControllers[index]
+                                                      .selection =
+                                                  TextSelection.fromPosition(
+                                                TextPosition(
+                                                  offset:
+                                                      _percentControllers[index]
+                                                          .text
+                                                          .length,
+                                                ),
+                                              );
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: percent.clamp(0, 100),
+                                  min: 0,
+                                  max: 100,
+                                  divisions: 100,
+                                  activeColor: color,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      final newValue = value.round();
+                                      jar['percent'] = newValue;
+                                      _percentControllers[index].text =
+                                          newValue.toString();
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ),
+              ),
+              const SizedBox(height: 20),
+              _sectionCard(
+                title: _getLabel('language'),
+                child: Column(
+                  children: [
+                    _languageOption(
+                      title: _getLabel('vietnamese'),
+                      subtitle: 'VND',
+                      isSelected: _currency == 'VND',
+                      onTap: () => _updateCurrency('VND'),
+                    ),
+                    const SizedBox(height: 12),
+                    _languageOption(
+                      title: _getLabel('english'),
+                      subtitle: 'USD',
+                      isSelected: _currency == 'USD',
+                      onTap: () => _updateCurrency('USD'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              _sectionCard(
+                title: _getLabel('theme'),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _getLabel('theme_light'),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      _getLabel('coming_soon'),
+                      style: const TextStyle(color: Color(0xFF94A3B8)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               SizedBox(
-                width: 40,
-                child: TextField(
-                  controller: jar.controller,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(vertical: 4),
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (val) {
-                    setState(() {
-                      jar.percentage = int.tryParse(val) ?? 0;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text("%", style: TextStyle(fontSize: 14)),
-              Expanded(
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 6,
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _saveSettings,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    overlayShape: const RoundSliderOverlayShape(
-                      overlayRadius: 14,
-                    ),
-                    activeTrackColor: jar.color,
-                    inactiveTrackColor: Colors.grey.shade200,
-                    thumbColor: jar.color,
                   ),
-                  child: Slider(
-                    value: jar.percentage.toDouble().clamp(0, 100),
-                    min: 0,
-                    max: 100,
-                    onChanged: (val) {
-                      setState(() {
-                        jar.percentage = val.toInt();
-                        jar.controller.text = jar.percentage.toString();
-                      });
-                    },
+                  child: Text(
+                    _isSaving ? _getLabel('saving') : _getLabel('save'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildOtherOptionsSection() {
+  Widget _sectionCard({
+    required String title,
+    required Widget child,
+    Widget? trailing,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -489,63 +576,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.language, color: Colors.green, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                "Tùy chọn khác",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF1E293B),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
+              if (trailing != null) trailing,
             ],
           ),
-          const SizedBox(height: 8),
-          _buildOptionTile("Ngôn ngữ", "Tiếng Việt"),
-          const Divider(height: 1, thickness: 1),
-          _buildOptionTile("Giao diện", "Sáng"),
-          const Divider(height: 1, thickness: 1),
-          _buildOptionTile("Sao lưu dữ liệu", "Tải xuống file JSON"),
+          const SizedBox(height: 16),
+          child,
         ],
       ),
     );
   }
 
-  Widget _buildOptionTile(String title, String subtitle) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class JarItem {
-  final String name;
-  final IconData icon;
-  final Color color;
-  int percentage;
-  late TextEditingController controller;
-
-  JarItem({
-    required this.name,
-    required this.icon,
-    required this.color,
-    required this.percentage,
+  Widget _languageOption({
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
   }) {
-    controller = TextEditingController(text: percentage.toString());
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFEEF2FF) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF6366F1)
+                : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.language,
+              color: isSelected
+                  ? const Color(0xFF6366F1)
+                  : const Color(0xFF94A3B8),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isSelected ? Icons.check_circle : Icons.circle_outlined,
+              color: isSelected
+                  ? const Color(0xFF6366F1)
+                  : const Color(0xFFCBD5E1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    String? hintText,
+    String? prefixText,
+    String? suffixText,
+    Widget? prefixIcon,
+    bool compact = false,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      prefixText: prefixText,
+      suffixText: suffixText,
+      prefixIcon: prefixIcon,
+      filled: true,
+      fillColor: const Color(0xFFF1F5F9),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: compact
+          ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+          : const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
+
+  Widget _labelText(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+        color: Color(0xFF0F172A),
+      ),
+    );
   }
 }

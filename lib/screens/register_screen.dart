@@ -69,9 +69,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            "Không thể kết nối tới máy chủ (10.0.2.2). Hãy kiểm tra Backend!",
+            "Không thể kết nối tới máy chủ (${_authService.baseUrl}). Hãy kiểm tra Backend!",
           ),
         ),
       );

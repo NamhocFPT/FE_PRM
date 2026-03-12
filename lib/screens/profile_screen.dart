@@ -4,8 +4,9 @@ import 'settings_screen.dart';
 import 'notification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final String token;
-  const ProfileScreen({super.key, required this.token});
+  final VoidCallback? onProfileUpdated;
+
+  const ProfileScreen({super.key, this.onProfileUpdated});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -18,7 +19,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String email = "";
   String monthlyIncome = "";
   String payDay = "";
+  String currency = "VND";
   bool isLoading = true;
+
+  final Map<String, Map<String, String>> labels = {
+    'profile_title': {'VND': 'Cá nhân', 'USD': 'Profile'},
+    'loading': {'VND': 'Đang tải...', 'USD': 'Loading...'},
+    'load_error': {
+      'VND': 'Không thể tải thông tin cá nhân',
+      'USD': 'Unable to load profile',
+    },
+    'monthly_income': {
+      'VND': 'Thu nhập hàng tháng',
+      'USD': 'Monthly Income',
+    },
+    'salary_day': {'VND': 'Ngày nhận lương', 'USD': 'Salary Payment Day'},
+    'not_set': {'VND': 'Chưa thiết lập', 'USD': 'Not set'},
+    'salary_day_prefix': {'VND': 'Ngày ', 'USD': 'Day '},
+    'edit_name_title': {'VND': 'Đổi tên hiển thị', 'USD': 'Change Display Name'},
+    'name_hint': {
+      'VND': 'Nhập tên mới của bạn',
+      'USD': 'Enter your new name',
+    },
+    'full_name_label': {'VND': 'Họ và tên', 'USD': 'Full Name'},
+    'cancel': {'VND': 'Hủy', 'USD': 'Cancel'},
+    'save': {'VND': 'Lưu', 'USD': 'Save'},
+    'update_success': {
+      'VND': 'Cập nhật hồ sơ thành công!',
+      'USD': 'Profile updated successfully!',
+    },
+    'update_error': {
+      'VND': 'Lỗi: Không thể cập nhật tên',
+      'USD': 'Error: Unable to update name',
+    },
+    'financial_info': {
+      'VND': 'Thông tin tài chính',
+      'USD': 'Financial Information',
+    },
+    'edit_name': {'VND': 'Đổi tên hiển thị', 'USD': 'Change Display Name'},
+    'settings': {'VND': 'Cài đặt tài khoản', 'USD': 'Account Settings'},
+    'notifications': {'VND': 'Thông báo', 'USD': 'Notifications'},
+    'logout': {'VND': 'ĐĂNG XUẤT', 'USD': 'LOGOUT'},
+    'transactions': {'VND': 'Giao dịch', 'USD': 'Transactions'},
+    'goals_reached': {'VND': 'Mục tiêu đạt', 'USD': 'Goals Reached'},
+  };
+
+  String _getLabel(String key) {
+    return labels[key]?[currency] ?? labels[key]?['VND'] ?? key;
+  }
 
   @override
   void initState() {
@@ -27,80 +75,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    final userData = await _authService.getUserProfile(widget.token);
-    if (!mounted) return;
+    try {
+      final userData = await _authService.getUserProfile();
+      if (!mounted) return;
 
-    if (userData != null) {
+      if (userData != null) {
+        setState(() {
+          name = userData['full_name'] ?? "User";
+          email = userData['email'] ?? "";
+          monthlyIncome = userData['monthly_income']?.toString() ?? "";
+          payDay = userData['pay_day']?.toString() ?? "";
+          currency = userData['currency'] ?? "VND";
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_getLabel('load_error'))),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
       setState(() {
-        name = userData['full_name'] ?? "Người dùng";
-        email = userData['email'] ?? "";
-        monthlyIncome = userData['monthly_income']?.toString() ?? "";
-        payDay = userData['pay_day']?.toString() ?? "";
         isLoading = false;
       });
-    } else {
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Không thể tải thông tin cá nhân")),
+        SnackBar(content: Text(_getLabel('load_error'))),
       );
     }
   }
 
+  String _formatIncome() {
+    if (monthlyIncome.isEmpty) return _getLabel('not_set');
+    return currency == 'USD' ? '\$$monthlyIncome' : '₫$monthlyIncome';
+  }
+
   void _updateName() {
-    final TextEditingController nameController = TextEditingController(
-      text: name,
-    );
+    final TextEditingController nameController = TextEditingController(text: name);
 
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text("Đổi tên hiển thị"),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_getLabel('edit_name_title')),
         content: TextField(
           controller: nameController,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: "Nhập tên mới của bạn",
-            labelText: "Họ và tên",
+          decoration: InputDecoration(
+            hintText: _getLabel('name_hint'),
+            labelText: _getLabel('full_name_label'),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+            child: Text(
+              _getLabel('cancel'),
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
-              String newName = nameController.text.trim();
+              final newName = nameController.text.trim();
+              if (newName.isEmpty) return;
 
-              if (newName.isEmpty) {
-                return;
-              }
+              Navigator.pop(dialogContext);
 
-              Navigator.pop(dialogContext); // Đóng dialog ngay sau khi nhấn Lưu
+              if (newName == name) return;
 
-              // Nếu tên không đổi, không gọi API nhưng có thể báo thành công ảo để UX mượt
-              if (newName == name) {
-                return;
-              }
-
-              bool success = await _authService.updateProfile(
-                widget.token,
-                newName,
-              );
+              final success = await _authService.updateProfile(newName);
 
               if (!mounted) return;
 
               if (success) {
-                await _loadProfile(); // Tải lại toàn bộ hồ sơ từ server
+                await _loadProfile();
+                widget.onProfileUpdated?.call();
+
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Cập nhật hồ sơ thành công!")),
+                  SnackBar(content: Text(_getLabel('update_success'))),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Lỗi: Không thể cập nhật tên")),
+                  SnackBar(content: Text(_getLabel('update_error'))),
                 );
               }
             },
-            child: const Text("Lưu"),
+            child: Text(_getLabel('save')),
           ),
         ],
       ),
@@ -128,9 +192,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Column(
                       children: [
-                        const Text(
-                          'Cá nhân',
-                          style: TextStyle(
+                        Text(
+                          _getLabel('profile_title'),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -173,16 +237,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _buildHeaderStat('0', 'Giao dịch'),
+                            _buildHeaderStat('0', _getLabel('transactions')),
                             const SizedBox(width: 10),
-                            _buildHeaderStat('0', 'Mục tiêu đạt'),
+                            _buildHeaderStat('0', _getLabel('goals_reached')),
                           ],
                         ),
                       ],
                     ),
                   ),
 
-                  // --- THÔNG TIN TÀI CHÍNH (Dữ liệu động) ---
                   Container(
                     margin: const EdgeInsets.all(16),
                     padding: const EdgeInsets.all(20),
@@ -191,7 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withOpacity(0.05),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
                         ),
@@ -200,9 +263,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Thông tin tài chính',
-                          style: TextStyle(
+                        Text(
+                          _getLabel('financial_info'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: Color(0xFF1E293B),
@@ -211,45 +274,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 16),
                         _buildFinanceItem(
                           icon: Icons.attach_money,
-                          label: 'Thu nhập hàng tháng',
-                          value: monthlyIncome.isEmpty
-                              ? "Chưa thiết lập"
-                              : "$monthlyIncome đ",
+                          label: _getLabel('monthly_income'),
+                          value: _formatIncome(),
                         ),
                         const Divider(height: 24, thickness: 0.5),
                         _buildFinanceItem(
                           icon: Icons.calendar_today_outlined,
-                          label: 'Ngày nhận lương',
+                          label: _getLabel('salary_day'),
                           value: payDay.isEmpty
-                              ? "Chưa thiết lập"
-                              : "Ngày $payDay",
+                              ? _getLabel('not_set')
+                              : "${_getLabel('salary_day_prefix')}$payDay",
                         ),
                       ],
                     ),
                   ),
 
-                  // --- MENU ---
                   _buildMenuTile(
                     icon: Icons.edit_note,
-                    title: "Đổi tên hiển thị",
+                    title: _getLabel('edit_name'),
                     onTap: _updateName,
                   ),
                   _buildMenuTile(
                     icon: Icons.settings_outlined,
-                    title: "Cài đặt tài khoản",
-                    onTap: () {
-                      Navigator.push(
+                    title: _getLabel('settings'),
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              SettingsScreen(token: widget.token),
+                          builder: (context) => const SettingsScreen(),
                         ),
                       );
+                      if (!mounted) return;
+                      await _loadProfile();
+                      widget.onProfileUpdated?.call();
                     },
                   ),
                   _buildMenuTile(
                     icon: Icons.notifications_none,
-                    title: "Thông báo",
+                    title: _getLabel('notifications'),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -259,9 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       );
                     },
                   ),
-
                   const SizedBox(height: 20),
-
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: ElevatedButton.icon(
@@ -272,12 +332,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () =>
-                          Navigator.pushReplacementNamed(context, '/login'),
+                      onPressed: () async {
+                        await _authService.logout();
+                        if (!context.mounted) return;
+                        Navigator.pushReplacementNamed(context, '/login');
+                      },
                       icon: const Icon(Icons.logout, color: Colors.white),
-                      label: const Text(
-                        "ĐĂNG XUẤT",
-                        style: TextStyle(
+                      label: Text(
+                        _getLabel('logout'),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
@@ -330,7 +393,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: Colors.white.withOpacity(0.2),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -364,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -379,4 +442,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-//
