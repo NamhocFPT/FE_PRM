@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'profile_screen.dart';
+import 'TransactionListScreen.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -48,9 +49,7 @@ class _MainWrapperState extends State<MainWrapper> {
           const Scaffold(
             body: Center(child: Text("Coming Soon")),
           ),
-          const Scaffold(
-            body: Center(child: Text("Coming Soon")),
-          ),
+          const TransactionListScreen(),
           const Scaffold(
             body: Center(child: Text("Coming Soon")),
           ),
