@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'settings_screen.dart';
 import 'notification_screen.dart';
+import 'monthly_report_screen.dart';
+import 'savings_goal_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onProfileUpdated;
@@ -59,6 +61,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'edit_name': {'VND': 'Đổi tên hiển thị', 'USD': 'Change Display Name'},
     'settings': {'VND': 'Cài đặt tài khoản', 'USD': 'Account Settings'},
     'notifications': {'VND': 'Thông báo', 'USD': 'Notifications'},
+    'monthly_report': {'VND': 'Báo cáo tháng', 'USD': 'Monthly Report'},
+    'savings_goal': {'VND': 'Mục tiêu tiết kiệm', 'USD': 'Savings Goals'},
     'logout': {'VND': 'ĐĂNG XUẤT', 'USD': 'LOGOUT'},
     'transactions': {'VND': 'Giao dịch', 'USD': 'Transactions'},
     'goals_reached': {'VND': 'Mục tiêu đạt', 'USD': 'Goals Reached'},
@@ -317,6 +321,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const NotificationScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildMenuTile(
+                    icon: Icons.bar_chart_rounded,
+                    title: _getLabel('monthly_report'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MonthlyReportScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildMenuTile(
+                    icon: Icons.savings_outlined,
+                    title: _getLabel('savings_goal'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SavingsGoalScreen(),
                         ),
                       );
                     },
