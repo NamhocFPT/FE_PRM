@@ -9,20 +9,20 @@ class AuthService {
 
   String get baseUrl {
     if (kIsWeb) {
-      return "http://localhost:3000/api/auth";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/auth";
     }
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         // Android Emulator
-        return "http://10.0.2.2:3000/api/auth";
+        return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/auth";
 
       case TargetPlatform.iOS:
       case TargetPlatform.windows:
       case TargetPlatform.macOS:
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
-        return "http://localhost:3000/api/auth";
+        return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/auth";
     }
   }
 

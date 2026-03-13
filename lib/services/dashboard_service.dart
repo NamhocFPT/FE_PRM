@@ -9,11 +9,11 @@ class DashboardService {
 
   String _getBaseUrl(String path) {
     if (kIsWeb) {
-      return "http://localhost:3000/api$path";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api$path";
     } else if (Platform.isAndroid) {
-      return "http://10.0.2.2:3000/api$path";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api$path";
     } else {
-      return "http://localhost:3000/api$path";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api$path";
     }
   }
 

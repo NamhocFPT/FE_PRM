@@ -13,9 +13,9 @@ class JarService {
   final JarProfileService _jarProfileService = JarProfileService();
 
   String get baseUrl {
-    if (kIsWeb) return 'http://localhost:3000/api/jars';
-    if (Platform.isAndroid) return 'http://10.0.2.2:3000/api/jars';
-    return 'http://localhost:3000/api/jars';
+    if (kIsWeb) return 'https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/jars';
+    if (Platform.isAndroid) return 'https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/jars';
+    return 'https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/jars';
   }
 
   Future<List<JarBalanceCardModel>> getDashboardJars({DateTime? month}) async {

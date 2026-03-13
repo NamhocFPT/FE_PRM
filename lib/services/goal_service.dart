@@ -9,18 +9,18 @@ class GoalService {
 
   String get baseUrl {
     if (kIsWeb) {
-      return "http://localhost:3000/api/goals";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/goals";
     }
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return "http://10.0.2.2:3000/api/goals";
+        return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/goals";
       case TargetPlatform.iOS:
       case TargetPlatform.windows:
       case TargetPlatform.macOS:
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
-        return "http://localhost:3000/api/goals";
+        return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/goals";
     }
   }
 

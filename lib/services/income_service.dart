@@ -11,9 +11,9 @@ class IncomeService {
   final TokenStorageService _tokenStorage = TokenStorageService();
 
   String get baseUrl {
-    if (kIsWeb) return 'http://localhost:3000/api/incomes';
-    if (Platform.isAndroid) return 'http://10.0.2.2:3000/api/incomes';
-    return 'http://localhost:3000/api/incomes';
+    if (kIsWeb) return 'https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/incomes';
+    if (Platform.isAndroid) return 'https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/incomes';
+    return 'https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/incomes';
   }
 
   Future<List<IncomeEventModel>> getIncomeHistory({String? month}) async {

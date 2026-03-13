@@ -7,11 +7,11 @@ import 'token_storage_service.dart';
 class JarProfileService {
   String get baseUrl {
     if (kIsWeb) {
-      return "http://localhost:3000/api/jar-profiles";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/jar-profiles";
     } else if (!kIsWeb && Platform.isAndroid) {
-      return "http://10.0.2.2:3000/api/jar-profiles";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/jar-profiles";
     } else {
-      return "http://localhost:3000/api/jar-profiles";
+      return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/jar-profiles";
     }
   }
 
