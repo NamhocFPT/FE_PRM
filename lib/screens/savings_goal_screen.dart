@@ -168,47 +168,77 @@ class _SavingsGoalScreenState extends State<SavingsGoalScreen> {
 
   void _showCustomAmountDialog(String goalId, double remaining) {
     _customAmountCtrl.clear();
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Nhập số tiền'),
-        content: TextField(
-          controller: _customAmountCtrl,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            hintText: 'Số tiền muốn cộng',
-            suffixText: '₫',
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
+          title: const Text('Nhập số tiền'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _customAmountCtrl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) => setStateDialog(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Số tiền muốn cộng',
+                  suffixText: '₫',
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              if ((double.tryParse(_customAmountCtrl.text) ?? 0) > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                  child: Text(
+                    _fmt(double.tryParse(_customAmountCtrl.text) ?? 0),
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                'Hủy',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                final val = double.tryParse(_customAmountCtrl.text) ?? 0;
+                Navigator.pop(ctx);
+                if (val > 0) {
+                  _addMoney(goalId, val);
+                }
+              },
+              child: const Text(
+                'Cộng tiền',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF59E0B),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () {
-              final val = double.tryParse(_customAmountCtrl.text) ?? 0;
-              Navigator.pop(ctx);
-              if (val > 0) {
-                _addMoney(goalId, val);
-              }
-            },
-            child: const Text('Cộng tiền', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
@@ -373,13 +403,29 @@ class _SavingsGoalScreenState extends State<SavingsGoalScreen> {
                       // Target amount
                       _label('Số tiền mục tiêu (VNĐ)'),
                       const SizedBox(height: 6),
-                      _editField(editTargetCtrl, '0', isNumber: true, prefixText: '₫ '),
+                      _editField(editTargetCtrl, '0', isNumber: true, prefixText: '₫ ', onChanged: (_) => setModalState(() {})),
+                      if ((double.tryParse(editTargetCtrl.text) ?? 0) > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            _fmt(double.tryParse(editTargetCtrl.text) ?? 0),
+                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                          ),
+                        ),
                       const SizedBox(height: 14),
 
                       // Current amount
                       _label('Số tiền hiện tại (VNĐ)'),
                       const SizedBox(height: 6),
-                      _editField(editCurrentCtrl, '0', isNumber: true, prefixText: '₫ '),
+                      _editField(editCurrentCtrl, '0', isNumber: true, prefixText: '₫ ', onChanged: (_) => setModalState(() {})),
+                      if ((double.tryParse(editCurrentCtrl.text) ?? 0) > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            _fmt(double.tryParse(editCurrentCtrl.text) ?? 0),
+                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                          ),
+                        ),
                       const SizedBox(height: 14),
 
                       // Deadline
@@ -484,11 +530,13 @@ class _SavingsGoalScreenState extends State<SavingsGoalScreen> {
     bool isNumber = false,
     String? prefixText,
     IconData? prefixIcon,
+    Function(String)? onChanged,
   }) {
     return TextField(
       controller: ctrl,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       inputFormatters: isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
+      onChanged: onChanged,
       decoration: InputDecoration(
         hintText: hint,
         prefixText: prefixText,

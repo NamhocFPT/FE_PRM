@@ -151,39 +151,26 @@ class LoginScreen extends StatelessWidget {
                                   await _authService.getUserProfile(token);
                               if (!context.mounted) return;
 
-                              final currency =
-                                  (userProfile?['currency'] ?? '').toString();
+                              // Bỏ qua màn hình chọn ngôn ngữ (bình thường sẽ kiểm tra currency.isEmpty)
+                              final hasActiveProfile =
+                                  await _jarProfileService.hasActiveProfile();
+                              if (!context.mounted) return;
 
-                              if (currency.isEmpty) {
-                                // Chưa có currency -> vào chọn ngôn ngữ
+                              if (hasActiveProfile) {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const MainWrapper(),
+                                  ),
+                                );
+                              } else {
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
-                                        const LanguageSelectionScreen(),
+                                        const IncomeSetupScreen(),
                                   ),
                                 );
-                              } else {
-                                final hasActiveProfile =
-                                    await _jarProfileService.hasActiveProfile();
-                                if (!context.mounted) return;
-
-                                if (hasActiveProfile) {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const MainWrapper(),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const IncomeSetupScreen(),
-                                    ),
-                                  );
-                                }
                               }
                             } else {
                               if (!context.mounted) return;

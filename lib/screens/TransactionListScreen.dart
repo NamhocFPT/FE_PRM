@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/transaction_service.dart';
 import '../services/jarprofile_service.dart';
+import '../services/income_service.dart';
 import 'AddExpenseScreen.dart';
 import 'EditExpenseScreen.dart';
 import 'TransferScreen.dart';
@@ -15,6 +16,7 @@ class TransactionListScreen extends StatefulWidget {
 class _TransactionListScreenState extends State<TransactionListScreen> {
   final TransactionService _service = TransactionService();
   final JarProfileService _jarProfileService = JarProfileService();
+  final IncomeService _incomeService = IncomeService();
 
   List<dynamic> _transactions = [];
   bool _isLoading = true;
@@ -33,6 +35,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     '': 'Tất cả',
     'EXPENSE': 'Chi tiêu',
     'TRANSFER': 'Chuyển tiền',
+    'INCOME': 'Thu nhập',
   };
 
   @override
@@ -71,23 +74,69 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
       _errorMessage = null;
     });
 
-    final result = await _service.getTransactions(
-      month: _monthString,
-      jarKey: _selectedJarKey.isNotEmpty ? _selectedJarKey : null,
-      type: _selectedType.isNotEmpty ? _selectedType : null,
-    );
+    try {
+      final results = await Future.wait([
+        _service.getTransactions(
+          month: _monthString,
+          jarKey: _selectedJarKey.isNotEmpty ? _selectedJarKey : null,
+          type: (_selectedType == 'EXPENSE' || _selectedType == 'TRANSFER' || _selectedType.isEmpty) ? _selectedType : 'IGNORE_ME',
+        ),
+        if (_selectedType == 'INCOME' || _selectedType.isEmpty)
+          _incomeService.getIncomeHistory(month: _monthString)
+        else
+          Future.value([]),
+      ]);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-      if (result['success'] == true) {
-        _transactions = result['data'] as List<dynamic>? ?? [];
-      } else {
-        _errorMessage = result['message'] ?? 'Có lỗi xảy ra';
-        _transactions = [];
+      final txResult = results[0] as Map<String, dynamic>;
+      final incomeResult = results.length > 1 ? results[1] as List<dynamic> : [];
+
+      List<dynamic> combinedList = [];
+
+      if (_selectedType != 'INCOME') {
+        if (txResult['success'] == true) {
+          combinedList.addAll(txResult['data'] as List<dynamic>? ?? []);
+        } else {
+          _errorMessage = txResult['message'] ?? 'Có lỗi xảy ra khi tải giao dịch';
+        }
       }
-    });
+
+      for (var inc in incomeResult) {
+        // Ánh xạ thuộc tính model sang json map mà màn hình này sử dụng
+        combinedList.add({
+          '_id': inc.id,
+          'type': 'INCOME',
+          'amount': inc.amount,
+          'note': inc.note,
+          'occurred_at': inc.receivedAt.toIso8601String(),
+          'jar_key': 'Thu nhập',
+          'from_jar_key': null,
+          'to_jar_key': null,
+          'currency': 'VND', // or fetch from profile if needed
+          'source': inc.source,
+        });
+      }
+
+      // Xếp theo thời gian giảm dần
+      combinedList.sort((a, b) {
+        final dateA = DateTime.tryParse(a['occurred_at']?.toString() ?? '') ?? DateTime(1970);
+        final dateB = DateTime.tryParse(b['occurred_at']?.toString() ?? '') ?? DateTime(1970);
+        return dateB.compareTo(dateA);
+      });
+
+      setState(() {
+        _isLoading = false;
+        _transactions = combinedList;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _transactions = [];
+      });
+    }
   }
 
   void _changeMonth(int delta) {
@@ -125,6 +174,14 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     );
 
     if (confirm != true) return;
+    
+    // Hiện chưa có API xoá thu nhập, nên block lại
+    if (id.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('Không thể xoá thu nhập lúc này!'), backgroundColor: Colors.orange),
+        );
+        return;
+    }
 
     final result = await _service.deleteExpense(id);
     if (!mounted) return;
@@ -382,8 +439,10 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     final occurredAt = tx['occurred_at'] ?? '';
     final id = tx['_id'] ?? '';
     final currency = tx['currency'] ?? 'VND';
+    final source = tx['source'] ?? '';
 
     final isTransfer = type == 'TRANSFER';
+    final isIncome = type == 'INCOME';
 
     // Parse date
     String dateStr = '';
@@ -418,19 +477,33 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: isTransfer ? const Color(0xFFFFF7ED) : const Color(0xFFEEF2FF),
+            color: isTransfer 
+                ? const Color(0xFFFFF7ED) 
+                : isIncome 
+                    ? const Color(0xFFF0FDF4) 
+                    : const Color(0xFFEEF2FF),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            isTransfer ? Icons.swap_horiz : Icons.arrow_downward,
-            color: isTransfer ? const Color(0xFFF97316) : const Color(0xFF6366F1),
+            isTransfer 
+                ? Icons.swap_horiz 
+                : isIncome 
+                    ? Icons.south_west_rounded 
+                    : Icons.arrow_downward,
+            color: isTransfer 
+                ? const Color(0xFFF97316) 
+                : isIncome 
+                    ? const Color(0xFF22C55E) 
+                    : const Color(0xFF6366F1),
             size: 22,
           ),
         ),
         title: Text(
           isTransfer
               ? '${_getJarName(tx['from_jar_key']?.toString())} → ${_getJarName(tx['to_jar_key']?.toString())}'
-              : _getJarName(jarKey.toString()),
+              : isIncome
+                  ? 'Thu nhập'
+                  : _getJarName(jarKey.toString()),
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
@@ -442,9 +515,9 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (note.isNotEmpty)
+            if (note.isNotEmpty || isIncome)
               Text(
-                note,
+                isIncome && source.isNotEmpty ? 'Từ: $source' + (note.isNotEmpty ? ' - $note' : '') : note,
                 style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -459,14 +532,18 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isTransfer ? amountStr : '-$amountStr',
+              isIncome 
+                  ? '+$amountStr'
+                  : isTransfer ? amountStr : '-$amountStr',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: isTransfer ? const Color(0xFFF97316) : const Color(0xFFEF4444),
+                color: isIncome 
+                    ? const Color(0xFF22C55E)
+                    : isTransfer ? const Color(0xFFF97316) : const Color(0xFFEF4444),
               ),
             ),
-            if (!isTransfer) ...[
+            if (!isTransfer && !isIncome) ...[
               const SizedBox(width: 4),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 20, color: Color(0xFF94A3B8)),
@@ -504,7 +581,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
             ],
           ],
         ),
-        onTap: isTransfer ? null : () => _navigateToEdit(tx),
+        onTap: (isTransfer || isIncome) ? null : () => _navigateToEdit(tx),
       ),
     );
   }

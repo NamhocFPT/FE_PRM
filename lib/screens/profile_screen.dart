@@ -4,6 +4,7 @@ import 'settings_screen.dart';
 import 'notification_screen.dart';
 import 'monthly_report_screen.dart';
 import 'savings_goal_screen.dart';
+import 'income_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onProfileUpdated;
@@ -66,6 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'logout': {'VND': 'ĐĂNG XUẤT', 'USD': 'LOGOUT'},
     'transactions': {'VND': 'Giao dịch', 'USD': 'Transactions'},
     'goals_reached': {'VND': 'Mục tiêu đạt', 'USD': 'Goals Reached'},
+    'income_history': {'VND': 'Lịch sử thu nhập', 'USD': 'Income History'},
   };
 
   String _getLabel(String key) {
@@ -333,6 +335,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const MonthlyReportScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildMenuTile(
+                    icon: Icons.history,
+                    title: _getLabel('income_history'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const IncomeHistoryScreen(),
                         ),
                       );
                     },

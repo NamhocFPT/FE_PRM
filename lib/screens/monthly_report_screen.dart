@@ -1,30 +1,25 @@
 import 'package:flutter/material.dart';
+import '../services/dashboard_service.dart';
 
-class MonthlyReportScreen extends StatelessWidget {
+class MonthlyReportScreen extends StatefulWidget {
   const MonthlyReportScreen({super.key});
 
-  // ── Mock data ──────────────────────────────────────────────────────────
-  // Thay bằng API thật sau
-  static final List<Map<String, dynamic>> _mockTransactions = [
-    // Tháng 3 – Thu nhập
-    {'type': 'income', 'amount': 15000000, 'date': '2026-03-05'},
-    {'type': 'income', 'amount': 3000000, 'date': '2026-03-15'},
-    // Tháng 3 – Chi tiêu
-    {'type': 'expense', 'amount': 5000000, 'date': '2026-03-02'},
-    {'type': 'expense', 'amount': 2000000, 'date': '2026-03-10'},
-    {'type': 'expense', 'amount': 1500000, 'date': '2026-03-18'},
-    // Tháng 2 – Thu nhập
-    {'type': 'income', 'amount': 14000000, 'date': '2026-02-05'},
-    {'type': 'income', 'amount': 2000000, 'date': '2026-02-20'},
-    // Tháng 2 – Chi tiêu
-    {'type': 'expense', 'amount': 6000000, 'date': '2026-02-03'},
-    {'type': 'expense', 'amount': 3000000, 'date': '2026-02-14'},
-    {'type': 'expense', 'amount': 1000000, 'date': '2026-02-25'},
-  ];
+  @override
+  State<MonthlyReportScreen> createState() => _MonthlyReportScreenState();
+}
 
-  static const double _mockMonthlyIncome = 18000000; // Thu nhập hàng tháng dự kiến
+class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
+  final DashboardService _dashboardService = DashboardService();
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // ── Helpers ────────────────────────────────────────────────────────────
+  int _currentMonth = DateTime.now().month;
+  int _currentYear = DateTime.now().year;
+
+  double _currentMonthIncome = 0;
+  double _currentMonthExpense = 0;
+  double _lastMonthIncome = 0;
+  double _lastMonthExpense = 0;
 
   static final List<String> _monthNames = [
     'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4',
@@ -32,26 +27,61 @@ class MonthlyReportScreen extends StatelessWidget {
     'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadReportData();
+  }
+
+  String _formatMonthString(int month, int year) {
+    return '$year-${month.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadReportData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final currentMonthStr = _formatMonthString(_currentMonth, _currentYear);
+      
+      int lastMonthVal = _currentMonth == 1 ? 12 : _currentMonth - 1;
+      int lastMonthYear = _currentMonth == 1 ? _currentYear - 1 : _currentYear;
+      final lastMonthStr = _formatMonthString(lastMonthVal, lastMonthYear);
+
+      final results = await Future.wait([
+        _dashboardService.getMonthlyDashboard(currentMonthStr),
+        _dashboardService.getMonthlyDashboard(lastMonthStr),
+      ]);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _currentMonthIncome = (results[0]['total_income'] ?? 0).toDouble();
+        _currentMonthExpense = (results[0]['total_expense'] ?? 0).toDouble();
+        _lastMonthIncome = (results[1]['total_income'] ?? 0).toDouble();
+        _lastMonthExpense = (results[1]['total_expense'] ?? 0).toDouble();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
   String _formatCurrency(double value) {
     final intValue = value.toInt();
     final str = intValue.toString();
     final buffer = StringBuffer();
     for (int i = 0; i < str.length; i++) {
-      if (i > 0 && (str.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(str[i]);
+        if (i > 0 && (str.length - i) % 3 == 0) buffer.write('.');
+        buffer.write(str[i]);
     }
     return '$buffer ₫';
-  }
-
-  double _sumByFilter(int month, int year, String type) {
-    return _mockTransactions
-        .where((t) {
-          final date = DateTime.parse(t['date'] as String);
-          return t['type'] == type &&
-              date.month - 1 == month &&
-              date.year == year;
-        })
-        .fold<double>(0, (sum, t) => sum + (t['amount'] as num).toDouble());
   }
 
   double _percentChange(double current, double previous) {
@@ -61,32 +91,30 @@ class MonthlyReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final currentMonth = now.month - 1; // 0-indexed
-    final currentYear = now.year;
-    final lastMonth = currentMonth == 0 ? 11 : currentMonth - 1;
-    final lastMonthYear = currentMonth == 0 ? currentYear - 1 : currentYear;
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Báo cáo tháng')),
+        body: Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red))),
+      );
+    }
 
-    final currentMonthIncome = _sumByFilter(currentMonth, currentYear, 'income');
-    final currentMonthExpense = _sumByFilter(currentMonth, currentYear, 'expense');
-    final lastMonthIncome = _sumByFilter(lastMonth, lastMonthYear, 'income');
-    final lastMonthExpense = _sumByFilter(lastMonth, lastMonthYear, 'expense');
+    final currentSavings = _currentMonthIncome - _currentMonthExpense;
+    final lastSavings = _lastMonthIncome - _lastMonthExpense;
 
-    final currentSavings = currentMonthIncome - currentMonthExpense;
-    final lastSavings = lastMonthIncome - lastMonthExpense;
-
-    final incomeChange = _percentChange(currentMonthIncome, lastMonthIncome);
-    final expenseChange = _percentChange(currentMonthExpense, lastMonthExpense);
+    final incomeChange = _percentChange(_currentMonthIncome, _lastMonthIncome);
+    final expenseChange = _percentChange(_currentMonthExpense, _lastMonthExpense);
     final savingsChange = _percentChange(currentSavings, lastSavings);
 
-    final incomeTarget = _mockMonthlyIncome;
+    final double incomeTarget = _currentMonthIncome > 0 ? _currentMonthIncome : 10000000;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Header ──────────────────────────────────────────────
             Container(
               width: double.infinity,
               padding: EdgeInsets.only(
@@ -106,20 +134,20 @@ class MonthlyReportScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    children: [
+                     children: [
                       InkWell(
                         onTap: () => Navigator.pop(context),
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
+                             color: Colors.white.withOpacity(0.2),
+                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                            size: 24,
+                             Icons.arrow_back,
+                             color: Colors.white,
+                             size: 24,
                           ),
                         ),
                       ),
@@ -127,23 +155,23 @@ class MonthlyReportScreen extends StatelessWidget {
                       const Text(
                         'Báo cáo tháng',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                           color: Colors.white,
+                           fontSize: 22,
+                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
+                     ],
                   ),
                   const SizedBox(height: 8),
                   Padding(
-                    padding: const EdgeInsets.only(left: 52),
-                    child: Text(
-                      '${_monthNames[currentMonth]} $currentYear',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 14,
-                      ),
-                    ),
+                     padding: const EdgeInsets.only(left: 52),
+                     child: Text(
+                        '${_monthNames[_currentMonth - 1]} $_currentYear',
+                        style: TextStyle(
+                           color: Colors.white.withOpacity(0.8),
+                           fontSize: 14,
+                        ),
+                     ),
                   ),
                 ],
               ),
@@ -153,47 +181,42 @@ class MonthlyReportScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // ── Savings card ────────────────────────────────────
                   _buildSavingsCard(currentSavings, lastSavings, savingsChange),
                   const SizedBox(height: 16),
 
-                  // ── Income card ─────────────────────────────────────
                   _buildStatCard(
                     icon: Icons.trending_up,
                     iconColor: const Color(0xFF22C55E),
                     title: 'Tổng thu nhập',
-                    currentValue: currentMonthIncome,
-                    previousValue: lastMonthIncome,
+                    currentValue: _currentMonthIncome,
+                    previousValue: _lastMonthIncome,
                     change: incomeChange,
                     valueColor: const Color(0xFF22C55E),
                     positiveIsGood: true,
                   ),
                   const SizedBox(height: 16),
 
-                  // ── Expense card ────────────────────────────────────
                   _buildStatCard(
                     icon: Icons.trending_down,
                     iconColor: const Color(0xFFEF4444),
                     title: 'Tổng chi tiêu',
-                    currentValue: currentMonthExpense,
-                    previousValue: lastMonthExpense,
+                    currentValue: _currentMonthExpense,
+                    previousValue: _lastMonthExpense,
                     change: expenseChange,
                     valueColor: const Color(0xFFEF4444),
                     positiveIsGood: false,
                   ),
                   const SizedBox(height: 16),
 
-                  // ── Comparison card ─────────────────────────────────
                   _buildComparisonCard(
-                    currentMonthIncome,
-                    currentMonthExpense,
+                    _currentMonthIncome,
+                    _currentMonthExpense,
                     incomeTarget,
                   ),
                   const SizedBox(height: 16),
 
-                  // ── Celebration card ────────────────────────────────
                   if (currentSavings > 0)
-                    _buildCelebrationCard(currentSavings, currentMonth),
+                    _buildCelebrationCard(currentSavings, _currentMonth - 1),
                 ],
               ),
             ),
@@ -202,8 +225,6 @@ class MonthlyReportScreen extends StatelessWidget {
       ),
     );
   }
-
-  // ── Widget builders ─────────────────────────────────────────────────────
 
   Widget _buildSavingsCard(
     double currentSavings,

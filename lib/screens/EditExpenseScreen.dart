@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/transaction_service.dart';
 import '../services/jarprofile_service.dart';
+import '../utils/jar_helpers.dart';
 
 class EditExpenseScreen extends StatefulWidget {
   final Map<String, dynamic> transaction;
@@ -218,6 +219,7 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
                           TextField(
                             controller: _amountController,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: InputDecoration(
                               prefixIcon: const Icon(Icons.attach_money, color: Color(0xFF6366F1)),
                               filled: true,
@@ -228,6 +230,16 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
                               ),
                             ),
                           ),
+                          if ((num.tryParse(_amountController.text.replaceAll('.', '')) ?? 0) > 0) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              JarHelpers.formatMoney(num.tryParse(_amountController.text.replaceAll('.', '')) ?? 0),
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
 
                           const SizedBox(height: 20),
 

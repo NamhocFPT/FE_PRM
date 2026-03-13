@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/jarprofile_service.dart';
 import '../services/auth_service.dart';
+import '../services/income_service.dart';
 import 'main_wrapper.dart';
 
 class IncomeSetupScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class IncomeSetupScreen extends StatefulWidget {
 class _IncomeSetupScreenState extends State<IncomeSetupScreen> {
   final JarProfileService _jarProfileService = JarProfileService();
   final AuthService _authService = AuthService();
+  final IncomeService _incomeService = IncomeService();
   final _incomeController = TextEditingController(text: '10000000');
   final _salaryDayController = TextEditingController(text: '1');
   bool _isLoading = false;
@@ -205,6 +207,14 @@ class _IncomeSetupScreenState extends State<IncomeSetupScreen> {
           return;
         }
       }
+
+      // Automatically add initial income so jars are funded
+      await _incomeService.addIncome(
+        amount: income,
+        source: currency == 'USD' ? 'Initial Setup' : 'Thiết lập ban đầu',
+        note: currency == 'USD' ? 'System generated on setup' : 'Hệ thống tự động thêm từ thiết lập ban đầu',
+        receivedAt: DateTime.now(),
+      );
 
       if (!mounted) return;
 
