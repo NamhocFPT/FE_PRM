@@ -3,7 +3,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/main_wrapper.dart';
 import 'screens/onboarding_screen.dart';
-import 'screens/language_selection_screen.dart';
+
 import 'screens/income_setup_screen.dart';
 import 'services/auth_service.dart';
 import 'services/jarprofile_service.dart';
@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '6 Jars App',
-      debugShowCheckedModeBanner: false, 
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -31,7 +31,6 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const MainWrapper(),
         '/onboarding': (context) => const OnboardingScreen(),
-        '/language': (context) => const LanguageSelectionScreen(),
       },
     );
   }
@@ -58,43 +57,45 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkLoginStatus() async {
     // Đợi một chút để tránh flicker
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     // Kiểm tra có token không
     final isLoggedIn = await _authService.isLoggedIn();
     print('DEBUG: isLoggedIn = $isLoggedIn');
-    
+
     if (!mounted) return;
-    
+
     if (isLoggedIn) {
-      // Đã đăng nhập -> Lấy thông tin user
+      // Đã đăng nhập -> check jar profile
       final userProfile = await _authService.getUserProfile();
-      print('DEBUG: userProfile = $userProfile');
-      final currency = userProfile?['currency'] ?? '';
-      print('DEBUG: currency = "$currency", isEmpty = ${currency.isEmpty}');
-        
+      if (userProfile == null) {
+        // Token tồn tại nhưng fetch profile fail -> có thể token hết hạn/sai
+        // Chuyển về login để user đăng nhập lại
+        print('DEBUG: userProfile is null, redirecting to login');
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+
+      final currency = userProfile['currency'] ?? '';
+      print('DEBUG: currency = "$currency"');
+
       if (!mounted) return;
-      
-      // Nếu chưa chọn currency -> vào chọn currency
-      if (currency == null || currency.isEmpty) {
-        Navigator.pushReplacementNamed(context, '/language');
+
+      // Kiểm tra xem đã có Jar Profile chưa để quyết định vào trang chủ hay setup
+      final hasActiveProfile = await _jarProfileService.hasActiveProfile();
+
+      if (!mounted) return;
+
+      if (hasActiveProfile) {
+        // Đã thiết lập xong -> vào trang chủ
+        Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // Đã có currency -> check jar profile
-        final hasActiveProfile = await _jarProfileService.hasActiveProfile();
-        
-        if (!mounted) return;
-        
-        if (hasActiveProfile) {
-          // Có active profile -> vào trang chủ
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          // Chưa có active profile -> vào income setup
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const IncomeSetupScreen(),
-            ),
-          );
-        }
+        // Chưa thiết lập xong -> vào màn hình thiết lập thu nhập
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const IncomeSetupScreen(),
+          ),
+        );
       }
     } else {
       // Chưa đăng nhập -> vào onboarding

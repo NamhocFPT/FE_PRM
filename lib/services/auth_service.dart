@@ -14,7 +14,7 @@ class AuthService {
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        // Android Emulator
+      // Android Emulator
         return "https://miwcerg73wscwzrkrqchvautme0pnoxj.lambda-url.us-east-1.on.aws/api/auth";
 
       case TargetPlatform.iOS:
@@ -76,19 +76,27 @@ class AuthService {
         return jsonDecode(response.body);
       }
 
+      // Nếu là 401/403 -> token hết hạn hoặc sai
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        print('DEBUG: Token invalid or expired (status ${response.statusCode})');
+        return null;
+      }
+
+      print('DEBUG: getUserProfile failed with status ${response.statusCode}: ${response.body}');
       return null;
-    } catch (_) {
+    } catch (e) {
+      print('DEBUG: getUserProfile exception: $e');
       return null;
     }
   }
 
   Future<bool> updateProfile(
-    String? newName, {
-    String? token,
-    int? monthlyIncome,
-    int? payDay,
-    Map<String, dynamic>? jars,
-  }) async {
+      String? newName, {
+        String? token,
+        int? monthlyIncome,
+        int? payDay,
+        Map<String, dynamic>? jars,
+      }) async {
     token ??= await _tokenStorage.getToken();
     if (token == null) return false;
 
@@ -113,10 +121,10 @@ class AuthService {
   }
 
   Future<bool> updateFinancialInfo(
-    int? monthlyIncome,
-    int? payDay, [
-    String? token,
-  ]) async {
+      int? monthlyIncome,
+      int? payDay, [
+        String? token,
+      ]) async {
     token ??= await _tokenStorage.getToken();
     if (token == null) return false;
 
@@ -152,8 +160,12 @@ class AuthService {
         body: jsonEncode({'currency': currency}),
       );
 
-      return response.statusCode == 200;
-    } catch (_) {
+      if (response.statusCode == 200) return true;
+
+      print('DEBUG: updateCurrency failed (status ${response.statusCode}): ${response.body}');
+      return false;
+    } catch (e) {
+      print('DEBUG: updateCurrency exception: $e');
       return false;
     }
   }
